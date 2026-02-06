@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ChatRoom, ChatMessage, ChatStatus } from '../types';
@@ -198,6 +197,14 @@ export const ChatRoomPage = () => {
       setMessages(prev => [...prev, sysMsg]);
   };
 
+  const handleBack = () => {
+      if (window.history.state && window.history.state.idx > 0) {
+          navigate(-1);
+      } else {
+          navigate('/chat', { replace: true });
+      }
+  };
+
   const renderMessage = (msg: ChatMessage) => {
       if (msg.type === 'booking' && msg.bookingInfo) {
           return (
@@ -268,7 +275,7 @@ export const ChatRoomPage = () => {
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="text-gray-800">
+          <button onClick={handleBack} className="text-gray-800">
             <ArrowLeft size={24} />
           </button>
           <div className="flex items-center gap-2">

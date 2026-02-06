@@ -1,11 +1,13 @@
-
 import { MOCK_PROVIDERS } from '../constants';
 import { Provider, QualityGrade } from '../types';
 
 // ============================================================================
-// [공공데이터 설정]
-// 인증키가 올바르지 않거나, 서버가 응답하지 않을 경우 자동으로 Mock 데이터로 전환됩니다.
+// [API 설정]
+// 1순위: 자체 백엔드 (/api/gov-proxy) - 배포 환경에서 작동 (CORS/HTTPS 문제 해결)
+// 2순위: 무료 프록시 (corsproxy.io) - 백엔드 실패 시 시도
+// 3순위: Mock 데이터 - 모든 연결 실패 시 체험 모드 제공
 // ============================================================================
+
 const GOV_API_KEY = '27c3fb03b6bbad323c5f91809853756c7f254e9066c559033fa4b4b9c6c35aae';
 
 // ============================================================================
@@ -18,109 +20,135 @@ export const verifyBusinessNumber = async (businessNo: string): Promise<boolean>
 };
 
 // ============================================================================
-// 2. 산후도우미 업체 검색 (실제 API + Proxy + Mock Fallback)
+// 2. 산후도우미 업체 검색
 // ============================================================================
 export const searchProvidersFromGov = async (query: string): Promise<{ data: Provider[], status: string, isMock: boolean }> => {
+  let xmlText: string | null = null;
+  let statusMessage = '';
+
+  // --- 1단계: 자체 백엔드(Serverless Function) 시도 ---
   try {
-      // 1. URL 구성
-      let targetUrl = `http://api.socialservice.or.kr/openapi/service/rest/ProviderInfoService/getProviderList?serviceKey=${GOV_API_KEY}&numOfRows=100&pageNo=1`;
-      if (query) targetUrl += `&keyword=${encodeURIComponent(query)}`;
-
-      // 2. Proxy 사용 (CORS/Mixed Content 우회)
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-      console.log(`[Real API] Requesting: ${proxyUrl}`);
-
-      const response = await fetch(proxyUrl);
+    const backendUrl = `/api/gov-proxy?query=${encodeURIComponent(query || '')}`;
+    console.log(`[API] Trying Backend: ${backendUrl}`);
+    
+    const response = await fetch(backendUrl);
+    
+    // 로컬 개발(npm run dev)에서는 /api 경로가 없어 404가 뜰 수 있음 -> catch로 이동
+    if (response.ok) {
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+         // 에러 응답인 경우
+         throw new Error("Backend returned JSON error");
+      }
+      xmlText = await response.text();
+      statusMessage = '공공데이터 연동 성공 (Backend)';
+    } else {
+      throw new Error(`Backend Status ${response.status}`);
+    }
+  } catch (backendError) {
+    console.warn(`[API] Backend failed, trying fallback proxy...`, backendError);
+    
+    // --- 2단계: 무료 프록시(corsproxy.io) 시도 (백업) ---
+    try {
+      let baseUrl = `http://api.socialservice.or.kr/openapi/service/rest/ProviderInfoService/getProviderList`;
+      let queryParams = `?serviceKey=${GOV_API_KEY}&numOfRows=100&pageNo=1`;
+      if (query) queryParams += `&keyword=${encodeURIComponent(query)}`;
       
-      if (!response.ok) throw new Error(`Status ${response.status}`);
+      // corsproxy.io 사용
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(baseUrl + queryParams)}`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
 
-      const textData = await response.text();
-      // console.log("[Real API] Response:", textData.substring(0, 100) + "...");
+      const response = await fetch(proxyUrl, { signal: controller.signal, cache: 'no-cache' });
+      clearTimeout(timeoutId);
 
-      // 3. XML 파싱
+      if (response.ok) {
+        xmlText = await response.text();
+        statusMessage = '공공데이터 연동 성공 (Proxy)';
+      } else {
+        throw new Error(`Proxy Status ${response.status}`);
+      }
+    } catch (proxyError) {
+      console.warn(`[API] All network requests failed.`, proxyError);
+    }
+  }
+
+  // --- 3단계: 데이터 파싱 또는 Mock 전환 ---
+  if (xmlText) {
+    try {
       const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(textData, "text/xml");
+      const xmlDoc = parser.parseFromString(xmlText, "text/xml");
       
       const errMsg = xmlDoc.getElementsByTagName('errMsg')[0]?.textContent;
       const returnAuthMsg = xmlDoc.getElementsByTagName('returnAuthMsg')[0]?.textContent;
       
-      // API 에러 감지 시
-      if (errMsg || returnAuthMsg) {
-        throw new Error(errMsg || returnAuthMsg);
-      }
+      if (!errMsg && !returnAuthMsg) {
+        const items = xmlDoc.getElementsByTagName('item');
+        
+        if (items.length > 0) {
+          const apiProviders: Provider[] = [];
+          for (let i = 0; i < items.length; i++) {
+              const item = items[i];
+              const name = item.getElementsByTagName('facilNm')[0]?.textContent || '이름 없는 업체';
+              const addr = item.getElementsByTagName('addr')[0]?.textContent || '주소 미제공';
+              const tel = item.getElementsByTagName('telNo')[0]?.textContent || '';
+              const gradeStr = item.getElementsByTagName('evalInfo')[0]?.textContent || ''; 
+              const regDate = item.getElementsByTagName('regDt')[0]?.textContent || '';
 
-      const items = xmlDoc.getElementsByTagName('item');
-      
-      // 4. 결과가 없으면 Mock 데이터 반환 (사용자 경험 우선)
-      if (items.length === 0) {
-          console.warn("[Real API] 0 items found. Switching to Mock Data.");
-          // 검색어 필터링하여 Mock 반환
-          const filteredMock = query 
-            ? MOCK_PROVIDERS.filter(p => p.name.includes(query) || p.location.includes(query))
-            : MOCK_PROVIDERS;
-            
-          return { 
-            data: filteredMock, 
-            status: 'API 결과 없음 (테스트 데이터 표시)', 
-            isMock: true 
-          };
-      }
+              // 등급 매핑
+              let grade = QualityGrade.Unrated;
+              if (gradeStr.includes('A') || gradeStr.includes('최우수')) grade = QualityGrade.A;
+              else if (gradeStr.includes('B') || gradeStr.includes('우수')) grade = QualityGrade.B;
+              else if (gradeStr.includes('C') || gradeStr.includes('보통')) grade = QualityGrade.C;
 
-      // 5. 실제 데이터 매핑
-      const apiProviders: Provider[] = [];
-      for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          const name = item.getElementsByTagName('facilNm')[0]?.textContent || '이름 없는 업체';
-          const addr = item.getElementsByTagName('addr')[0]?.textContent || '주소 미제공';
-          const tel = item.getElementsByTagName('telNo')[0]?.textContent || '';
-          const gradeStr = item.getElementsByTagName('evalInfo')[0]?.textContent || ''; 
-          const regDate = item.getElementsByTagName('regDt')[0]?.textContent || '';
+              // 업력 계산
+              let yearsActive = 1;
+              if (regDate && regDate.length >= 4) {
+                  const year = parseInt(regDate.substring(0, 4));
+                  yearsActive = new Date().getFullYear() - year;
+                  if (yearsActive < 0) yearsActive = 1; 
+              }
 
-          // 등급 매핑
-          let grade = QualityGrade.Unrated;
-          if (gradeStr.includes('A') || gradeStr.includes('최우수')) grade = QualityGrade.A;
-          else if (gradeStr.includes('B') || gradeStr.includes('우수')) grade = QualityGrade.B;
-          else if (gradeStr.includes('C') || gradeStr.includes('보통')) grade = QualityGrade.C;
-
-          // 업력 계산
-          let yearsActive = 1;
-          if (regDate && regDate.length >= 4) {
-              const year = parseInt(regDate.substring(0, 4));
-              yearsActive = new Date().getFullYear() - year;
-              if (yearsActive < 0) yearsActive = 1; 
+              apiProviders.push({
+                  id: `gov_${i}_${Date.now()}`, 
+                  name: name,
+                  location: addr,
+                  description: `정부 등록 공식 인증 업체입니다. (문의: ${tel})`,
+                  grade: grade,
+                  yearsActive: yearsActive,
+                  isVerified: true, 
+                  isAd: false,
+                  reviews: [], 
+                  imageUrl: `https://picsum.photos/500/300?random=${400 + i}`, 
+                  priceStart: 0, 
+                  phoneNumber: tel
+              });
           }
-
-          apiProviders.push({
-              id: `gov_${i}_${Date.now()}`, 
-              name: name,
-              location: addr,
-              description: `정부 등록 공식 인증 업체입니다. (문의: ${tel})`,
-              grade: grade,
-              yearsActive: yearsActive,
-              isVerified: true, 
-              isAd: false,
-              reviews: [], 
-              imageUrl: `https://picsum.photos/500/300?random=${400 + i}`, 
-              priceStart: 0, 
-              phoneNumber: tel
-          });
+          return { data: apiProviders, status: statusMessage, isMock: false };
+        }
       }
-
-      return { data: apiProviders, status: '공공데이터 연동 성공', isMock: false };
-
-  } catch (error: any) {
-      console.warn(`[Real API] Failed (${error.message}). Using Mock Data.`);
-      
-      const filteredMock = query 
-        ? MOCK_PROVIDERS.filter(p => p.name.includes(query) || p.location.includes(query))
-        : MOCK_PROVIDERS;
-
-      return { 
-        data: filteredMock, 
-        status: `연동 실패: ${error.message} (테스트 모드)`, 
-        isMock: true 
-      };
+    } catch (parseError) {
+      console.error("XML Parsing Error:", parseError);
+    }
   }
+
+  // --- 최후의 수단: Mock 데이터 반환 ---
+  console.log("[API] Switching to Demo Mode (Mock Data)");
+  const filteredMock = query 
+    ? MOCK_PROVIDERS.filter(p => p.name.includes(query) || p.location.includes(query))
+    : MOCK_PROVIDERS;
+
+  // 검색 결과가 아예 없는 경우
+  if (filteredMock.length === 0 && query && xmlText) {
+      return { data: [], status: '검색 결과 없음', isMock: false };
+  }
+
+  return { 
+    data: filteredMock, 
+    status: '체험 모드 (테스트 데이터)', 
+    isMock: true 
+  };
 };
 
 export const loginWithSocial = async (provider: 'kakao' | 'google' | 'apple') => {

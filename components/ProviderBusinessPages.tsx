@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserState, Review } from '../types';
@@ -19,10 +18,18 @@ export const ProviderEditPage = ({ userState, onUpdate }: { userState: UserState
     navigate(-1);
   };
 
+  const handleBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/my', { replace: true });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <div className="sticky top-0 bg-white z-10 border-b border-gray-100 px-4 h-14 flex items-center gap-3">
-        <button onClick={() => navigate(-1)}><ArrowLeft size={24} /></button>
+        <button onClick={handleBack}><ArrowLeft size={24} /></button>
         <h1 className="font-bold text-lg">업체 정보 수정</h1>
       </div>
       <div className="p-5 space-y-6">
@@ -70,10 +77,19 @@ export const ProviderEditPage = ({ userState, onUpdate }: { userState: UserState
 // --- Ads Management Page ---
 export const ProviderAdsPage = () => {
   const navigate = useNavigate();
+  
+  const handleBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/my', { replace: true });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="sticky top-0 bg-white z-10 border-b border-gray-100 px-4 h-14 flex items-center gap-3">
-        <button onClick={() => navigate(-1)}><ArrowLeft size={24} /></button>
+        <button onClick={handleBack}><ArrowLeft size={24} /></button>
         <h1 className="font-bold text-lg">광고 관리</h1>
       </div>
       
@@ -145,11 +161,19 @@ export const ProviderReviewsPage = ({ reviews, onUpdateReview }: { reviews: Revi
     });
     setEditingReply(null);
   };
+  
+  const handleBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/my', { replace: true });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10">
       <div className="sticky top-0 bg-white z-10 border-b border-gray-100 px-4 h-14 flex items-center gap-3">
-        <button onClick={() => navigate(-1)}><ArrowLeft size={24} /></button>
+        <button onClick={handleBack}><ArrowLeft size={24} /></button>
         <h1 className="font-bold text-lg">후기 관리</h1>
       </div>
 
@@ -258,10 +282,18 @@ export const ProviderPointsPage = ({ currentPoints, onCharge }: { currentPoints:
     navigate(-1);
   };
 
+  const handleBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/my', { replace: true });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="sticky top-0 bg-white z-10 border-b border-gray-100 px-4 h-14 flex items-center gap-3">
-        <button onClick={() => navigate(-1)}><ArrowLeft size={24} /></button>
+        <button onClick={handleBack}><ArrowLeft size={24} /></button>
         <h1 className="font-bold text-lg">포인트 충전</h1>
       </div>
 

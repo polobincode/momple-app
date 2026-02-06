@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Provider } from '../types';
 import ProviderCard from './ProviderCard';
 import { searchProvidersFromGov } from '../services/externalApi';
-import { Search, RefreshCw, AlertTriangle, Database, CloudOff } from 'lucide-react';
+import { Search, RefreshCw, AlertTriangle, Database, CloudOff, Info } from 'lucide-react';
 
 const ProviderSearchPage = ({ userState }: { userState: any }) => {
   const navigate = useNavigate();
@@ -73,17 +72,20 @@ const ProviderSearchPage = ({ userState }: { userState: any }) => {
           </div>
           
           {/* Status Indicator Bar */}
-          <div className={`mt-2 flex items-center justify-between text-[11px] px-2 py-1 rounded ${isMock ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>
+          <div className={`mt-2 flex items-center justify-between text-[11px] px-2 py-1.5 rounded transition-colors ${isMock ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>
              <span className="flex items-center gap-1.5 font-medium">
                 {loading ? (
                     <RefreshCw size={12} className="animate-spin" />
                 ) : isMock ? (
-                    <CloudOff size={12} />
+                    <Info size={12} />
                 ) : (
                     <Database size={12} />
                 )}
                 {loading ? '검색 중...' : statusMsg}
              </span>
+             {isMock && !loading && (
+                <span className="opacity-70 text-[10px]">실제 데이터 연동 지연시 표시됨</span>
+             )}
           </div>
        </div>
 

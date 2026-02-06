@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Provider, Review, QualityGrade } from '../types';
@@ -97,7 +96,11 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
     if (viewMode === 'write') {
       setViewMode('list');
     } else {
-      navigate(-1);
+       if (window.history.state && window.history.state.idx > 0) {
+          navigate(-1);
+       } else {
+          navigate('/search', { replace: true });
+       }
     }
   };
 

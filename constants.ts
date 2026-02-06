@@ -1,6 +1,14 @@
 
 import { Provider, QualityGrade, Product, Review, ChatRoom, UserProfile, CommunityPost, Notification } from './types';
 
+// Content Filtering List
+export const FORBIDDEN_WORDS = [
+  '비속어', '바보', '멍청이', '개XX', '씨XX', // Profanity examples
+  '홍길동', '김철수', // Real name examples (Mock)
+  '나쁜조리원', '사기업체', // Specific business defamation examples (Mock)
+  '불법도박', '카지노' // Illegal promotion examples
+];
+
 export const MOCK_USERS: UserProfile[] = [
   { id: 'u_official', name: 'Momple_Official', avatar: 'https://picsum.photos/50/50?random=20', isFollowingMe: false, intro: '맘플 공식 계정입니다. 공지사항을 확인하세요.' },
   { id: 'u_expert', name: '육아고수', avatar: 'https://picsum.photos/50/50?random=22', isFollowingMe: true, intro: '육아 3년차, 꿀팁 공유해요 👶' },

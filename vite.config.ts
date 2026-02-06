@@ -12,6 +12,10 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env.API_KEY': JSON.stringify(env.API_KEY),
+    },
+    // 로컬 개발 환경에서 CORS 문제 방지 또는 API 폴더 구조 인식용
+    server: {
+      host: true, // 모든 네트워크 인터페이스에서 접근 허용
     }
   }
 })

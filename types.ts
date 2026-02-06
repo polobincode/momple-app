@@ -77,6 +77,8 @@ export interface CommunityPost {
   timeAgo: string;
   viewCount: number;
   likeCount: number;
+  isLiked?: boolean; // New: Current user liked status
+  isReported?: boolean; // New: Current user reported status
   commentCount: number;
   imageUrl?: string;
   isPopular?: boolean;
@@ -89,7 +91,10 @@ export interface Comment {
   content: string;
   timeAgo: string;
   likeCount: number;
+  isLiked?: boolean; // New: Current user liked status
+  isReported?: boolean; // New: Current user reported status
   isBlinded?: boolean;
+  replies?: Comment[]; // New: Nested comments (replies)
 }
 
 export interface Schedule {
