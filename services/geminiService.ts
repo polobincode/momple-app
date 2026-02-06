@@ -1,14 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
-const apiKey = process.env.API_KEY || ''; // In a real app, ensure this is set securely.
-
-// Initializing the client. 
-// Note: In a production client-side app, you'd usually proxy this through a backend 
-// to hide the API key, or use a specific restricted key.
-const ai = new GoogleGenAI({ apiKey });
+// Initialize GoogleGenAI with process.env.API_KEY directly as per guidelines.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getParentingAdvice = async (query: string): Promise<string> => {
-  if (!apiKey) {
+  if (!process.env.API_KEY) {
     return "API Key is missing. Please configure process.env.API_KEY.";
   }
 
