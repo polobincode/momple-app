@@ -1,5 +1,7 @@
 import { 
-  signInWithPopup, 
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -37,18 +39,34 @@ export interface AuthResult {
     photoURL: string | null;
   };
   error?: string;
+  isRedirect?: boolean; // 리다이렉트 진행 여부 확인용
 }
 
-// 1. Google Login
+// 1. Google Login (Mobile Friendly: Redirect 방식)
 export const loginWithGoogle = async (): Promise<AuthResult> => {
   try {
     const provider = new GoogleAuthProvider();
-    // 계정 선택창을 강제로 띄워 자동 로그인 오류 방지
     provider.setCustomParameters({
       prompt: 'select_account'
     });
 
-    const result = await signInWithPopup(auth, provider);
+    // 모바일 환경 호환성을 위해 Popup 대신 Redirect 사용
+    await signInWithRedirect(auth, provider);
+    
+    // 리다이렉트 시작 시점에는 user 정보가 없으므로 flag만 반환
+    return { success: true, isRedirect: true };
+  } catch (error: any) {
+    console.error("Google Login Error:", error);
+    return { success: false, error: parseAuthError(error) };
+  }
+};
+
+// 1-1. Handle Google Redirect Result (앱 로드 시 호출)
+export const handleGoogleRedirect = async (): Promise<AuthResult | null> => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (!result) return null; // 리다이렉트 결과가 없음 (일반 접속)
+
     const user = result.user;
     return {
       success: true,
@@ -60,25 +78,8 @@ export const loginWithGoogle = async (): Promise<AuthResult> => {
       }
     };
   } catch (error: any) {
-    console.error("Google Login Error Code:", error.code);
-    console.error("Google Login Error Message:", error.message);
-    
-    let errorMessage = "로그인 중 오류가 발생했습니다.";
-
-    // 구글 로그인 실패 유형별 안내
-    if (error.code === 'auth/unauthorized-domain') {
-        errorMessage = `[도메인 승인 필요]\n현재 도메인(${window.location.hostname})이 Firebase에 등록되지 않았습니다.\nFirebase 콘솔 > Authentication > Settings > Authorized Domains에 추가해주세요.`;
-    } else if (error.code === 'auth/popup-closed-by-user') {
-        errorMessage = "로그인 창을 닫으셨습니다. 다시 시도해주세요.";
-    } else if (error.code === 'auth/popup-blocked') {
-        errorMessage = "팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.";
-    } else if (error.code === 'auth/operation-not-allowed') {
-        errorMessage = "Google 로그인이 비활성화 상태입니다. Firebase 콘솔에서 Google 로그인 공급업체를 '사용 설정' 해주세요.";
-    } else if (error.message) {
-        errorMessage = `로그인 실패: ${error.message}`;
-    }
-
-    return { success: false, error: errorMessage };
+    console.error("Google Redirect Error:", error);
+    return { success: false, error: parseAuthError(error) };
   }
 };
 
@@ -92,9 +93,9 @@ export const loginWithKakao = async (): Promise<AuthResult> => {
       return;
     }
 
+    // 모바일 웹 환경 고려
     window.Kakao.Auth.login({
       success: async (authObj: any) => {
-        // 토큰을 받으면 사용자 정보 요청
         window.Kakao.API.request({
           url: '/v2/user/me',
           success: (res: any) => {
@@ -117,11 +118,10 @@ export const loginWithKakao = async (): Promise<AuthResult> => {
       },
       fail: (err: any) => {
         console.error('Kakao Login Fail:', err);
-        // KOE009: Unregistered site domain
         if (err?.error === 'KOE009') {
-          resolve({ success: false, error: "도메인 등록이 필요합니다. 카카오 개발자 사이트 > 플랫폼 > Web에 현재 도메인을 등록해주세요." });
+          resolve({ success: false, error: "[도메인 미등록] 카카오 개발자 콘솔 > 플랫폼 > Web에 현재 도메인(vercel.app)을 등록해주세요." });
         } else {
-          resolve({ success: false, error: JSON.stringify(err) });
+          resolve({ success: false, error: `카카오 로그인 실패: ${JSON.stringify(err)}` });
         }
       },
     });
@@ -133,24 +133,18 @@ export const signUpWithEmail = async (email: string, password: string, name: str
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-    
-    // Update Display Name
     await updateProfile(user, { displayName: name });
-    
     return {
       success: true,
       user: {
         uid: user.uid,
         email: user.email,
-        displayName: name, // Use the name provided
+        displayName: name,
         photoURL: null
       }
     };
   } catch (error: any) {
-    let msg = "회원가입 실패";
-    if (error.code === 'auth/email-already-in-use') msg = "이미 사용 중인 이메일입니다.";
-    if (error.code === 'auth/weak-password') msg = "비밀번호는 6자리 이상이어야 합니다.";
-    return { success: false, error: msg };
+    return { success: false, error: parseAuthError(error) };
   }
 };
 
@@ -169,10 +163,25 @@ export const loginWithEmail = async (email: string, password: string): Promise<A
       }
     };
   } catch (error: any) {
-    let msg = "로그인 실패";
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-      msg = "이메일 또는 비밀번호가 올바르지 않습니다.";
-    }
-    return { success: false, error: msg };
+    return { success: false, error: parseAuthError(error) };
   }
+};
+
+// Helper: Error Parser
+const parseAuthError = (error: any): string => {
+  const code = error.code;
+  const msg = error.message;
+
+  if (code === 'auth/unauthorized-domain') {
+    return `[도메인 승인 필요]\n현재 도메인(${window.location.hostname})이 Firebase에 등록되지 않았습니다.\nFirebase 콘솔 > Authentication > Settings > Authorized Domains에 추가해주세요.`;
+  }
+  if (code === 'auth/popup-closed-by-user') return "로그인 창을 닫으셨습니다.";
+  if (code === 'auth/popup-blocked') return "팝업이 차단되었습니다. 설정을 확인해주세요.";
+  if (code === 'auth/email-already-in-use') return "이미 사용 중인 이메일입니다.";
+  if (code === 'auth/weak-password') return "비밀번호는 6자리 이상이어야 합니다.";
+  if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+    return "이메일 또는 비밀번호가 올바르지 않습니다.";
+  }
+  
+  return msg || "로그인 중 오류가 발생했습니다.";
 };

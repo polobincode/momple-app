@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Home, MessageCircle, User, MapPin, Search, Send, Sparkles, LogOut, FileText, Camera, CheckCircle, Upload, ChevronRight, Settings, MessageSquareText, Users, Coins, Megaphone, Gift, CreditCard, Plus, X, Edit3, Smile, Bell, Eye, ThumbsUp, ArrowLeft, MoreHorizontal, Share2, Siren, AlertCircle, Heart, UserPlus, UserCheck, Calendar, Mail, Lock, UserX } from 'lucide-react';
@@ -14,7 +13,7 @@ import { MOCK_PROVIDERS, MOCK_PRODUCTS, MOCK_COMMUNITY_POSTS, MOCK_NOTIFICATIONS
 import { Provider, UserState, Product, UserRole, CommunityPost, QualityGrade, Comment, Schedule, Review } from './types';
 import { verifyBusinessNumber } from './services/externalApi';
 // Import new Auth Service
-import { loginWithGoogle, loginWithKakao, loginWithEmail, signUpWithEmail, initKakao, AuthResult } from './services/authService';
+import { loginWithGoogle, loginWithKakao, loginWithEmail, signUpWithEmail, initKakao, AuthResult, handleGoogleRedirect } from './services/authService';
 
 // --- Auth & Onboarding Components ---
 
@@ -55,8 +54,23 @@ const AuthSelection = ({ onLoginSuccess }: { onLoginSuccess: (user?: any) => voi
   const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
-    // Initialize Kakao SDK when component mounts
+    // Initialize Kakao SDK
     initKakao();
+
+    // Check for Google Redirect Result (Mobile Auth)
+    const checkRedirect = async () => {
+        setLoading(true);
+        const result = await handleGoogleRedirect();
+        if (result) {
+            if (result.success) {
+                onLoginSuccess(result.user);
+            } else {
+                alert(`로그인 확인 중 오류: ${result.error}`);
+            }
+        }
+        setLoading(false);
+    };
+    checkRedirect();
   }, []);
   
   const handleSocialLogin = async (provider: 'kakao' | 'google') => {
@@ -65,11 +79,16 @@ const AuthSelection = ({ onLoginSuccess }: { onLoginSuccess: (user?: any) => voi
       
       try {
         if (provider === 'google') {
+          // Google uses Redirect method now
           result = await loginWithGoogle();
+          if (result.isRedirect) {
+              // Redirecting... do nothing
+              return;
+          }
         } else if (provider === 'kakao') {
-          // Timeout logic: If Kakao doesn't respond in 10s, treat as failure (popup blocked or network issue)
+          // Kakao Login
           const timeoutPromise = new Promise<AuthResult>((resolve) => {
-             setTimeout(() => resolve({ success: false, error: "응답 시간이 초과되었습니다. 팝업이 차단되었는지 확인해주세요." }), 10000);
+             setTimeout(() => resolve({ success: false, error: "응답 시간이 초과되었습니다. 팝업 차단 여부를 확인하거나 카카오 도메인 설정을 확인해주세요." }), 10000);
           });
           
           result = await Promise.race([loginWithKakao(), timeoutPromise]);
@@ -78,16 +97,15 @@ const AuthSelection = ({ onLoginSuccess }: { onLoginSuccess: (user?: any) => voi
         result = { success: false, error: e.message || "로그인 중 오류가 발생했습니다." };
       }
       
-      // If manually cancelled by user via button, loading might already be false, but here we enforce logic
-      if (!loading && !result) return; 
-
       setLoading(false);
 
       if (result && result.success) {
           onLoginSuccess(result.user);
       } else {
-          // Alert unless the user manually cancelled the spinner already
-          alert(`로그인 실패: ${result?.error || '알 수 없는 오류'}\n\n(설정 문제로 로그인이 안된다면 아래 '관리자 로그인' 버튼을 이용해주세요)`);
+          // Explicit Error Handling for User
+          if (result?.error) {
+              alert(`로그인 실패\n\n${result.error}`);
+          }
       }
   };
 
@@ -131,7 +149,7 @@ const AuthSelection = ({ onLoginSuccess }: { onLoginSuccess: (user?: any) => voi
     setLoading(false);
 
     if (result.success) {
-      alert(view === 'email_signup' ? '회원가입 성공!' : '로그인 성공!');
+      // alert(view === 'email_signup' ? '회원가입 성공!' : '로그인 성공!');
       onLoginSuccess(result.user);
     } else {
       alert(result.error);
