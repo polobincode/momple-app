@@ -1,0 +1,8 @@
+{
+  "name": "Momple (맘플)",
+  "description": "Total baby care service combining postpartum care provider search, second-hand marketplace, and parenting community.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
