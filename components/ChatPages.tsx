@@ -24,11 +24,14 @@ export const ChatListPage = () => {
 
   return (
     <div className="pb-20 min-h-screen bg-white">
-      <div className="sticky top-0 bg-white z-10 px-4 py-3 border-b border-gray-100">
-        <h1 className="font-bold text-xl mb-4">대화</h1>
+      <div className="sticky top-0 bg-white z-10 border-b border-gray-100">
+        <div className="px-4 py-3 flex items-center gap-3">
+            <button onClick={() => navigate(-1)} className="text-gray-800"><ArrowLeft size={24} /></button>
+            <h1 className="font-bold text-xl">대화</h1>
+        </div>
         
         {/* Filter Tabs */}
-        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+        <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
           {['all', 'provider', 'dm'].map((f) => (
             <button 
               key={f}
@@ -88,15 +91,19 @@ export const ChatRoomPage = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Constants for ephemeral messages
-  const EPHEMERAL_DURATION = 10000; // 10 seconds for demo (Telegram style)
+  const EPHEMERAL_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
   // Find chat or initialize mock for new DM
   const existingChat = MOCK_CHATS.find(c => c.id === id);
+  
+  // Use passed state targetName if available (for "Send Schedule" feature), else fallback to existing or default
+  const targetName = location.state?.targetName || existingChat?.targetName || '알 수 없음';
+  
   const initialChat: ChatRoom = existingChat || {
     id: id || 'temp',
     type: 'dm', // Default to DM if creating new
     targetId: location.state?.targetId || 'unknown',
-    targetName: location.state?.targetName || '알 수 없음',
+    targetName: targetName,
     targetImage: location.state?.targetImage || 'https://picsum.photos/50/50',
     lastMessage: '',
     lastMessageTime: '',
@@ -113,19 +120,27 @@ export const ChatRoomPage = () => {
   useEffect(() => {
       if (location.state?.bookingInfo) {
           const info = location.state.bookingInfo;
-          const systemMsg: ChatMessage = {
-              id: `sys_${Date.now()}`,
-              senderId: 'me',
-              text: '예약이 확정되었습니다.',
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              type: 'booking',
-              bookingInfo: {
-                  date: info.date,
-                  time: info.time,
-                  service: info.service
-              }
-          };
-          setMessages(prev => [...prev, systemMsg]);
+          // Avoid duplicate messages if useEffect runs multiple times (React 18 Strict Mode)
+          setMessages(prev => {
+              const alreadyExists = prev.some(m => m.type === 'booking' && m.bookingInfo?.date === info.date && m.bookingInfo?.time === info.time);
+              if (alreadyExists) return prev;
+
+              const systemMsg: ChatMessage = {
+                  id: `sys_${Date.now()}`,
+                  senderId: 'me', // Sent by the provider (me)
+                  text: '예약이 확정되었습니다.',
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  type: 'booking',
+                  bookingInfo: {
+                      date: info.date,
+                      time: info.time,
+                      service: info.service
+                  }
+              };
+              return [...prev, systemMsg];
+          });
+          
+          // Clear state to prevent adding again on refresh (optional, but good practice)
           window.history.replaceState({}, document.title);
       }
   }, [location.state]);
@@ -208,26 +223,27 @@ export const ChatRoomPage = () => {
   const renderMessage = (msg: ChatMessage) => {
       if (msg.type === 'booking' && msg.bookingInfo) {
           return (
-              <div key={msg.id} className="flex justify-end mb-3 w-full">
-                  <div className="bg-white border border-primary/30 rounded-2xl overflow-hidden shadow-sm w-64">
-                      <div className="bg-primary/10 p-3 border-b border-primary/10 flex items-center gap-2">
-                          <CheckCircle size={16} className="text-primary" />
-                          <span className="font-bold text-primary text-sm">예약 확정 알림</span>
+              <div key={msg.id} className="flex justify-end mb-4 w-full animate-fade-in-up">
+                  <div className="bg-white rounded-2xl overflow-hidden shadow-md w-72 border border-gray-100">
+                      <div className="bg-primary p-4 flex items-center justify-between">
+                          <span className="font-bold text-white text-base">예약 확정 안내</span>
+                          <CheckCircle size={20} className="text-white" />
                       </div>
-                      <div className="p-4">
-                          <h3 className="font-bold text-gray-800 text-base mb-2">{msg.bookingInfo.service}</h3>
-                          <div className="space-y-1 text-sm text-gray-600">
-                              <div className="flex items-center gap-2">
-                                  <Calendar size={14} className="text-gray-400" />
-                                  <span>{msg.bookingInfo.date}</span>
+                      <div className="p-5">
+                          <h3 className="font-bold text-gray-900 text-lg mb-4">{msg.bookingInfo.service}</h3>
+                          <div className="space-y-3">
+                              <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                  <span className="text-gray-500 text-sm">일시</span>
+                                  <span className="font-bold text-gray-800 text-sm text-right">{msg.bookingInfo.date}<br/>{msg.bookingInfo.time}</span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                  <div className="w-3.5 h-3.5 flex items-center justify-center border border-gray-400 rounded-full text-[8px] font-bold text-gray-400">Time</div>
-                                  <span>{msg.bookingInfo.time}</span>
+                              <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                  <span className="text-gray-500 text-sm">장소</span>
+                                  <span className="font-bold text-gray-800 text-sm">자택 (방문케어)</span>
                               </div>
                           </div>
-                          <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-100">
-                              예약이 정상적으로 확정되었습니다.
+                          <p className="text-xs text-gray-400 mt-4 text-center leading-relaxed">
+                              예약이 정상적으로 확정되었습니다.<br/>
+                              변경 문의는 답장으로 남겨주세요.
                           </p>
                       </div>
                   </div>
@@ -307,7 +323,7 @@ export const ChatRoomPage = () => {
           <div className="bg-gray-50 px-4 py-2 text-center border-b border-gray-100">
               <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
                   <Timer size={12} className="text-primary" />
-                  보안을 위해 메시지는 <span className="font-bold text-primary">10초 후 자동 삭제</span>됩니다.
+                  보안을 위해 메시지는 <span className="font-bold text-primary">24시간 후 자동 삭제</span>됩니다.
               </p>
           </div>
       )}

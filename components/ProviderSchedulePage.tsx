@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { Schedule } from '../types';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, User, CheckCircle, MessageCircle, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, User, CheckCircle, MessageCircle, X, ArrowLeft, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface ProviderSchedulePageProps {
@@ -40,22 +39,36 @@ const ProviderSchedulePage: React.FC<ProviderSchedulePageProps> = ({ schedules, 
     setSelectedDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
   };
 
-  const handleAddSchedule = () => {
-    if (!newSchedule.customerName) return;
-    
+  const createScheduleObject = () => {
     const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-    
-    const schedule: Schedule = {
+    return {
       id: `sch_${Date.now()}`,
       date: dateStr,
       time: newSchedule.time,
       customerName: newSchedule.customerName,
       serviceType: newSchedule.serviceType,
-      status: 'confirmed',
+      status: 'confirmed' as const,
       note: newSchedule.note
     };
+  };
 
+  const handleAddSchedule = () => {
+    if (!newSchedule.customerName) return;
+    const schedule = createScheduleObject();
     onAddSchedule(schedule);
+    resetModal();
+  };
+
+  const handleSaveAndShare = () => {
+    if (!newSchedule.customerName) return;
+    const schedule = createScheduleObject();
+    onAddSchedule(schedule);
+    resetModal();
+    // Navigate immediately to chat to share
+    sendToChat(schedule);
+  };
+
+  const resetModal = () => {
     setIsModalOpen(false);
     setNewSchedule({ customerName: '', time: '10:00', serviceType: '산후조리 일반 (9-18시)', note: '' });
   };
@@ -63,9 +76,12 @@ const ProviderSchedulePage: React.FC<ProviderSchedulePageProps> = ({ schedules, 
   const sendToChat = (schedule: Schedule) => {
     // Navigate to Chat Room with initial message data
     // In a real app, we would find the real chat room ID for this customer.
-    // Here we simulate going to a general customer chat
-    navigate('/chat/c_customer_1', { 
+    // Here we simulate going to a chat room named after the customer
+    const mockChatId = `c_${schedule.customerName}_${Date.now()}`;
+    
+    navigate(`/chat/${mockChatId}`, { 
         state: { 
+            targetName: schedule.customerName, // Pass name to set chat title
             bookingInfo: {
                 date: schedule.date,
                 time: schedule.time,
@@ -122,8 +138,13 @@ const ProviderSchedulePage: React.FC<ProviderSchedulePageProps> = ({ schedules, 
   return (
     <div className="min-h-screen bg-white pb-20">
        {/* Header */}
-       <div className="p-4 flex justify-between items-center bg-white border-b border-gray-100">
-         <h1 className="font-bold text-xl text-gray-800">일정 관리</h1>
+       <div className="sticky top-0 z-10 p-4 flex justify-between items-center bg-white border-b border-gray-100">
+         <div className="flex items-center gap-3">
+            <button onClick={() => navigate(-1)} className="text-gray-800">
+                <ArrowLeft size={24} />
+            </button>
+            <h1 className="font-bold text-xl text-gray-800">일정 관리</h1>
+         </div>
          <button onClick={() => setIsModalOpen(true)} className="bg-gray-900 text-white p-2 rounded-full shadow-md active:scale-95 transition-transform">
            <Plus size={20} />
          </button>
@@ -196,7 +217,7 @@ const ProviderSchedulePage: React.FC<ProviderSchedulePageProps> = ({ schedules, 
                           
                           <button 
                             onClick={() => sendToChat(schedule)}
-                            className="w-full py-2 bg-gray-50 hover:bg-primary/10 hover:text-primary text-gray-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-gray-200 hover:border-primary/30"
+                            className="w-full py-2.5 bg-primary/5 hover:bg-primary/10 text-primary rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-primary/20"
                           >
                              <MessageCircle size={16} />
                              예약 알림 보내기
@@ -266,12 +287,21 @@ const ProviderSchedulePage: React.FC<ProviderSchedulePageProps> = ({ schedules, 
                         />
                     </div>
 
-                    <button 
-                        onClick={handleAddSchedule}
-                        className="w-full bg-primary text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-primary-dark mt-2"
-                    >
-                        일정 등록하기
-                    </button>
+                    <div className="flex gap-2 mt-4">
+                        <button 
+                            onClick={handleAddSchedule}
+                            className="flex-1 bg-gray-100 text-gray-600 font-bold py-3.5 rounded-xl hover:bg-gray-200"
+                        >
+                            등록만 하기
+                        </button>
+                        <button 
+                            onClick={handleSaveAndShare}
+                            className="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl shadow-md hover:bg-primary-dark flex items-center justify-center gap-1"
+                        >
+                            <Send size={16} />
+                            등록 및 전송
+                        </button>
+                    </div>
                 </div>
             </div>
          </div>

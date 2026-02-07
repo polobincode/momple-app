@@ -14,9 +14,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="맘플" />
     
-    <!-- Momple Custom Icon (Mint Background + White Heart) -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%232AC1BC'/%3E%3Cpath fill='white' d='M256 448l-30-27C119 324 48 260 48 181 48 117 98 67 162 67c36 0 70 17 94 44 24-27 58-44 94-44 64 0 114 50 114 114 0 79-71 143-178 240l-30 27z'/%3E%3C/svg%3E" />
-    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%232AC1BC'/%3E%3Cpath fill='white' d='M256 448l-30-27C119 324 48 260 48 181 48 117 98 67 162 67c36 0 70 17 94 44 24-27 58-44 94-44 64 0 114 50 114 114 0 79-71 143-178 240l-30 27z'/%3E%3C/svg%3E" />
+    <!-- Momple Custom Icon (Leaf Shape with Hole, Mint Color) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%232AC1BC' fill-rule='evenodd' d='M0 512 V256 C0 114.6 114.6 0 256 0 C397.4 0 512 114.6 512 256 C512 397.4 397.4 512 256 512 H0 Z M390 220 A100 100 0 1 0 190 220 A100 100 0 1 0 390 220'/%3E%3C/svg%3E" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%232AC1BC' fill-rule='evenodd' d='M0 512 V256 C0 114.6 114.6 0 256 0 C397.4 0 512 114.6 512 256 C512 397.4 397.4 512 256 512 H0 Z M390 220 A100 100 0 1 0 190 220 A100 100 0 1 0 390 220'/%3E%3C/svg%3E" />
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -37,13 +37,18 @@
               sans: ['Noto Sans KR', 'sans-serif'],
             },
             animation: {
-              'fade-in': 'fadeIn 0.2s ease-in-out',
+              'fade-in': 'fadeIn 0.6s ease-out forwards',
+              'fade-out': 'fadeOut 0.6s ease-out forwards',
               'fade-in-up': 'fadeInUp 0.3s ease-out',
             },
             keyframes: {
               fadeIn: {
                 '0%': { opacity: '0' },
                 '100%': { opacity: '1' },
+              },
+              fadeOut: {
+                '0%': { opacity: '1' },
+                '100%': { opacity: '0' },
               },
               fadeInUp: {
                 '0%': { opacity: '0', transform: 'translateY(10px)' },
@@ -55,8 +60,6 @@
       }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <!-- Kakao SDK -->
-    <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.6.0/kakao.min.js" integrity="sha384-6MFdIr0zOira1CHQkedUqJVql0YtcZA1P0nbPrQYJXVJZUkTk/oX4U9GhUIs3/z8" crossorigin="anonymous"></script>
     <style>
       body {
         font-family: 'Noto Sans KR', sans-serif;

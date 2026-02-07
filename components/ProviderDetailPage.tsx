@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Provider, Review, QualityGrade } from '../types';
 import { MOCK_PROVIDERS } from '../constants';
-import { ArrowLeft, Star, Image as ImageIcon, Video, Upload, CreditCard, ShieldCheck, MapPin, CheckCircle, Phone, MessageSquareText, Trophy, Siren, AlertCircle, CornerDownRight, Store } from 'lucide-react';
+import { verifyReceipt } from '../services/geminiService';
+import { ArrowLeft, Star, Image as ImageIcon, Video, Upload, CreditCard, ShieldCheck, MapPin, CheckCircle, Phone, MessageSquareText, Trophy, Siren, AlertCircle, CornerDownRight, Store, Loader2 } from 'lucide-react';
 
 interface ProviderDetailPageProps {
   onWriteReview: (providerId: string, content: string, rating: number, hasMedia: boolean, isVerified: boolean) => void;
@@ -43,12 +44,30 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
     })
     .slice(0, 5);
 
-  const handleVerify = () => {
+  const handleVerify = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    
+    const file = e.target.files[0];
     setVerifying(true);
-    setTimeout(() => {
+    
+    try {
+      // Call Gemini API to verify receipt
+      const isMatch = await verifyReceipt(file, provider.name);
+      
+      if (isMatch) {
+        setVerified(true);
+        alert("영수증 인증에 성공했습니다! [실제이용자 후기 인증] 뱃지가 적용됩니다.");
+      } else {
+        setVerified(false);
+        alert(`영수증에서 '${provider.name}' 업체명을 찾을 수 없습니다.\n선명한 영수증 사진을 다시 올려주세요.`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("이미지 분석 중 오류가 발생했습니다. 다시 시도해주세요.");
+      setVerified(false);
+    } finally {
       setVerifying(false);
-      setVerified(true);
-    }, 1500);
+    }
   };
 
   const handleSubmitReview = () => {
@@ -137,8 +156,8 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-bold text-gray-700">{review.userName}</p>
               {review.isVerified && (
-                 <span className="flex items-center text-[10px] font-medium text-primary bg-teal-50 px-1.5 py-0.5 rounded-full border border-teal-100">
-                   <ShieldCheck size={10} className="mr-0.5" /> 인증회원
+                 <span className="flex items-center text-[10px] font-medium text-white bg-green-500 px-2 py-0.5 rounded-full shadow-sm">
+                   <ShieldCheck size={10} className="mr-0.5" /> 실제이용자 후기 인증
                  </span>
               )}
               {review.isBest && (
@@ -186,7 +205,7 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
                       <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
                           <CornerDownRight size={12} className="text-gray-400" /> 사장님 답글
                       </span>
-                      <span className="text-[10px] text-gray-400">{review.reply.date}</span>
+                      <span className="text-xs text-gray-400">{review.reply.date}</span>
                   </div>
                   <p className="text-xs text-gray-600 pl-4">{review.reply.content}</p>
               </div>
@@ -197,7 +216,7 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
   };
 
   return (
-    <div className="min-h-screen bg-white pb-20 relative">
+    <div className="min-h-screen bg-white pb-40 relative">
       {/* Header */}
       <div className="sticky top-0 bg-white z-[60] border-b border-gray-100 px-4 h-14 flex items-center gap-3 shadow-sm transition-all">
         <button 
@@ -309,7 +328,7 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
           </div>
 
           {/* Fixed Bottom Contact Bar */}
-          <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 pb-safe z-50 flex gap-3 max-w-md mx-auto right-0">
+          <div className="fixed bottom-16 left-0 w-full bg-white border-t border-gray-200 p-4 z-50 flex gap-3 max-w-md mx-auto right-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
              <button 
                onClick={handleCall}
                className="flex-1 bg-white border border-gray-200 text-gray-600 py-3.5 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
@@ -326,7 +345,7 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
         </>
       ) : (
         // Write Mode
-        <div className="p-5 bg-white min-h-[calc(100vh-56px)]">
+        <div className="p-5 bg-white min-h-[calc(100vh-56px)] pb-20">
            {/* Same write review UI as before */}
           <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-xl mb-6">
             <h3 className="text-sm font-bold text-blue-800 mb-1 flex items-center gap-1.5">
@@ -334,26 +353,35 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
             </h3>
             <p className="text-xs text-blue-600 leading-snug">
               영수증이나 카드 내역을 첨부하시면<br/>
-              <span className="font-bold">'인증회원'</span> 뱃지가 표시되어 다른 분들께 도움이 됩니다.
+              <span className="font-bold">'실제이용자 후기 인증'</span> 뱃지가 표시되어 다른 분들께 도움이 됩니다.
             </p>
           </div>
 
           {!verified ? (
             <div className="mb-6">
-              <label className="block w-full cursor-pointer bg-white border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-primary hover:bg-teal-50 transition-colors group">
-                 <CreditCard size={32} className="mx-auto text-gray-300 mb-2 group-hover:text-primary" />
-                 <p className="text-sm text-gray-600 font-medium mb-1">영수증/결제내역 인증 (선택)</p>
-                 <p className="text-xs text-gray-400">{verifying ? '인증 확인 중...' : '터치하여 이미지 업로드'}</p>
-                 <input type="file" className="hidden" onChange={handleVerify} accept="image/*" />
+              <label className={`block w-full cursor-pointer bg-white border-2 border-dashed rounded-xl p-6 text-center transition-colors group ${verifying ? 'border-primary bg-blue-50 cursor-wait' : 'border-gray-200 hover:border-primary hover:bg-teal-50'}`}>
+                 {verifying ? (
+                    <div className="flex flex-col items-center">
+                        <Loader2 size={32} className="text-primary animate-spin mb-2" />
+                        <p className="text-sm text-primary font-bold">AI가 영수증을 분석 중입니다...</p>
+                    </div>
+                 ) : (
+                    <>
+                        <CreditCard size={32} className="mx-auto text-gray-300 mb-2 group-hover:text-primary" />
+                        <p className="text-sm text-gray-600 font-medium mb-1">영수증/결제내역 인증 (선택)</p>
+                        <p className="text-xs text-gray-400">터치하여 이미지 업로드</p>
+                    </>
+                 )}
+                 <input type="file" className="hidden" onChange={handleVerify} accept="image/*" disabled={verifying} />
               </label>
             </div>
           ) : (
-            <div className="mb-6 bg-teal-50 border border-teal-100 p-4 rounded-xl flex items-center justify-between">
+            <div className="mb-6 bg-green-50 border border-green-200 p-4 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CheckCircle size={20} className="text-primary" />
+                <CheckCircle size={24} className="text-green-600" />
                 <div>
                   <p className="text-sm font-bold text-gray-800">인증 완료</p>
-                  <p className="text-xs text-gray-500">후기에 인증 뱃지가 표시됩니다.</p>
+                  <p className="text-xs text-gray-600">후기에 '실제이용자 후기 인증' 뱃지가 표시됩니다.</p>
                 </div>
               </div>
               <button onClick={() => setVerified(false)} className="text-xs text-gray-400 underline">취소</button>

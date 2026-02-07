@@ -12,7 +12,7 @@ export enum YearsActive {
   TenPlus = '10+'
 }
 
-export type UserRole = 'user' | 'provider';
+export type UserRole = 'user' | 'provider' | 'admin';
 
 export interface Review {
   id: string;
@@ -83,6 +83,7 @@ export interface CommunityPost {
   imageUrl?: string;
   isPopular?: boolean;
   isBlinded?: boolean; // New: Report status
+  isNotice?: boolean; // New: Notice post status
 }
 
 export interface Comment {
@@ -95,6 +96,7 @@ export interface Comment {
   isReported?: boolean; // New: Current user reported status
   isBlinded?: boolean;
   replies?: Comment[]; // New: Nested comments (replies)
+  isAdmin?: boolean; // New: Identifies if the comment is from an admin
 }
 
 export interface Schedule {
@@ -118,6 +120,8 @@ export interface UserState {
   points: number;
   followerCount: number; // New: Follower count for My Page
   following: string[]; // List of IDs I follow
+  postCount: number; // New: Track number of posts created
+  commentCount: number; // New: Track number of comments created
   unlockedProviders: string[];
   viewedReviews: Record<string, number>;
   // Provider specific
@@ -128,6 +132,11 @@ export interface UserState {
     description: string;
     imageUrl: string;
     phoneNumber?: string;
+  };
+  // Partner Subscription
+  subscription?: {
+    status: 'trial' | 'active' | 'expired';
+    expiryDate: string; // ISO Date String
   };
 }
 
@@ -173,4 +182,23 @@ export interface Notification {
   timeAgo: string;
   isRead: boolean;
   targetPath?: string;
+}
+
+// --- Admin Types ---
+export interface PartnerRequest {
+  id: string;
+  businessName: string;
+  businessNo: string;
+  requestDate: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export interface ReportItem {
+  id: string;
+  targetType: 'post' | 'comment' | 'review';
+  targetId: string; // Link to actual content
+  reason: string;
+  reporter: string;
+  contentSnippet: string;
+  status: 'pending' | 'blinded' | 'dismissed';
 }
