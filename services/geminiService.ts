@@ -1,7 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize GoogleGenAI with process.env.API_KEY directly as per guidelines.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper: Get AI Client lazily
+// This prevents the app from crashing on startup if process.env.API_KEY is undefined.
+const getAiClient = () => {
+  if (!process.env.API_KEY) {
+    console.warn("Gemini API Key is missing.");
+    return null;
+  }
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
 
 // Helper: Convert File to Base64 for Gemini
 const fileToBase64 = async (file: File): Promise<string> => {
@@ -19,8 +26,9 @@ const fileToBase64 = async (file: File): Promise<string> => {
 };
 
 export const getParentingAdvice = async (query: string): Promise<string> => {
-  if (!process.env.API_KEY) {
-    return "API Key is missing. Please configure process.env.API_KEY.";
+  const ai = getAiClient();
+  if (!ai) {
+    return "API 설정이 필요합니다. (API Key Missing)";
   }
 
   try {
@@ -43,7 +51,8 @@ export const getParentingAdvice = async (query: string): Promise<string> => {
 };
 
 export const verifyReceipt = async (file: File, providerName: string): Promise<boolean> => {
-  if (!process.env.API_KEY) return false;
+  const ai = getAiClient();
+  if (!ai) return false;
 
   try {
     const base64Data = await fileToBase64(file);
@@ -82,7 +91,8 @@ export const verifyReceipt = async (file: File, providerName: string): Promise<b
 
 // New: Business License Verification
 export const verifyBusinessLicense = async (file: File): Promise<boolean> => {
-  if (!process.env.API_KEY) return false;
+  const ai = getAiClient();
+  if (!ai) return false;
 
   try {
     const base64Data = await fileToBase64(file);

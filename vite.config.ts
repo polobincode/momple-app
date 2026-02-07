@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
     },
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY),
+      // Fallback to empty string if undefined to prevent JS runtime errors on client
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
     },
     // 로컬 개발 환경에서 CORS 문제 방지 또는 API 폴더 구조 인식용
     server: {

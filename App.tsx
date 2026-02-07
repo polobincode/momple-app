@@ -10,7 +10,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth'; // Import auth func
 
 import { CommunityPost, UserState, Comment, Schedule, Review, UserRole, Notification } from './types';
 import { MOCK_COMMUNITY_POSTS, MOCK_NOTIFICATIONS, FORBIDDEN_WORDS } from './constants';
-import { loginWithKakao, loginWithGoogle, handleGoogleRedirect, loginWithEmail, signUpWithEmail } from './services/authService';
+import { loginWithKakao, loginWithGoogle, handleGoogleRedirect, loginWithEmail, signUpWithEmail, initKakao } from './services/authService';
 import { auth } from './services/firebaseConfig'; // Import auth instance
 import { verifyBusinessLicense } from './services/geminiService';
 
@@ -425,10 +425,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     const result = await loginWithGoogle();
+    
+    // If mocking or error handled immediately
+    if (result.success && result.user) {
+        setLoading(false);
+        onLoginSuccess(result.user);
+        return;
+    }
+
     if (!result.success && !result.isRedirect) {
        setLoading(false);
        alert(result.error);
     }
+    // If result.isRedirect is true, the browser is navigating away, so we do nothing.
   };
 
   // 3. Email/ID Login (Both General and Partner)
@@ -1202,6 +1211,9 @@ function App() {
 
   // Initialize Auth State (Persistence Logic)
   useEffect(() => {
+    // 0. Init Kakao SDK
+    initKakao();
+
     // 1. Check LocalStorage (for hardcoded admin or simple persistence)
     const storedUser = localStorage.getItem('momple_user');
     if (storedUser) {
