@@ -1,5 +1,5 @@
 
-import { Provider, QualityGrade, Product, Review, ChatRoom, UserProfile, CommunityPost, Notification } from './types';
+import { Provider, QualityGrade, Product, Review, ChatRoom, UserProfile, CommunityPost, Notification, ReportItem, SupportTicket } from './types';
 
 // Content Filtering List
 export const FORBIDDEN_WORDS = [
@@ -18,6 +18,20 @@ export const MOCK_USERS: UserProfile[] = [
 ];
 
 export const MOCK_COMMUNITY_POSTS: CommunityPost[] = [
+  {
+    id: 'notice_1',
+    title: '📢 맘플 커뮤니티 이용 수칙 안내 (필독)',
+    content: '안녕하세요, 맘플 관리자입니다. 건전한 커뮤니티 문화를 위해 이용 수칙을 안내드립니다. 비방, 욕설, 허위사실 유포 시 제재될 수 있습니다.',
+    authorId: 'momple',
+    authorName: 'momple',
+    authorBadge: '관리자',
+    timeAgo: '공지',
+    viewCount: 9999,
+    likeCount: 50,
+    commentCount: 0,
+    isPopular: false,
+    isNotice: true
+  },
   {
     id: 'cp1',
     title: '몸이 너무 뻐근한데 마사지샵 추천 좀 부탁드려요 ㅠㅠ',
@@ -142,6 +156,7 @@ export const MOCK_PROVIDERS: Provider[] = [
     description: '프리미엄 산후 관리 서비스, 1:1 맞춤 케어',
     grade: QualityGrade.A,
     yearsActive: 12,
+    userCount: 1250,
     isVerified: true,
     isAd: true,
     reviews: MOCK_REVIEWS,
@@ -156,6 +171,7 @@ export const MOCK_PROVIDERS: Provider[] = [
     description: '정부 지원 바우처 사용 가능, 친절한 서비스',
     grade: QualityGrade.A,
     yearsActive: 6,
+    userCount: 840,
     isVerified: true,
     isAd: false,
     reviews: [MOCK_REVIEWS[0], MOCK_REVIEWS[2]],
@@ -170,6 +186,7 @@ export const MOCK_PROVIDERS: Provider[] = [
     description: '신규 오픈! 열정적인 관리사님 대기 중',
     grade: QualityGrade.B,
     yearsActive: 1,
+    userCount: 42,
     isVerified: false,
     isAd: false,
     reviews: [MOCK_REVIEWS[1]],
@@ -184,6 +201,7 @@ export const MOCK_PROVIDERS: Provider[] = [
     description: '10년 이상의 베테랑 관리사만 배정합니다.',
     grade: QualityGrade.C, // Example for icon logic
     yearsActive: 15,
+    userCount: 2100,
     isVerified: true,
     isAd: false,
     reviews: [...MOCK_REVIEWS, ...MOCK_REVIEWS],
@@ -284,4 +302,16 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
   { id: 'n2', type: 'like', content: "'사랑맘'님이 회원님의 글을 좋아합니다.", timeAgo: '10분 전', isRead: false, targetPath: '/post/cp1' },
   { id: 'n3', type: 'notice', content: '맘플 서비스 점검 안내 (12/25 00:00~02:00)', timeAgo: '1일 전', isRead: true },
   { id: 'n4', type: 'comment', content: "'행복파파'님이 댓글을 남겼습니다.", timeAgo: '2일 전', isRead: true, targetPath: '/post/cp2' },
+];
+
+// --- Admin Data ---
+
+export const MOCK_REPORTS: ReportItem[] = [
+  { id: 'rep1', targetType: 'review', targetId: 'r1', reason: '경쟁업체 비방 및 허위 사실 유포', reporter: '해피맘', targetUser: '불만많은맘', contentSnippet: '이 업체 정말 별로예요.. 위생상태가..', status: 'pending' },
+  { id: 'rep2', targetType: 'post', targetId: 'cp5', reason: '욕설/비하 발언', reporter: 'user123', targetUser: '화난사람', contentSnippet: '남편 XX 진짜 짜증나네', status: 'pending' },
+];
+
+export const MOCK_SUPPORT_TICKETS: SupportTicket[] = [
+    { id: 't1', userId: 'u_new', userName: '새내기맘', title: '포인트 충전이 안돼요', content: '카카오페이로 5만원 충전했는데 포인트가 안 들어옵니다. 확인 부탁드려요.', date: '2023-12-05', status: 'pending' },
+    { id: 't2', userId: 'p1', userName: '해피맘 산후조리', title: '광고 상품 문의', content: '메인 배너 광고 가격이랑 기간 문의드립니다.', date: '2023-12-04', status: 'replied', reply: '안녕하세요. 메인 배너는 주 5만원입니다.' }
 ];

@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { 
   Baby, Store, ArrowLeft, MessageCircle, Loader2, 
   Home, Search, User, PenSquare, LogOut, Bell, Settings,
   ShieldCheck, MapPin, Star, Heart, Plus, Menu, X, Megaphone,
-  Check, Flame, Pin
+  Check
 } from 'lucide-react';
 import { 
   UserRole, UserState, Provider, Review, CommunityPost, Notification, Schedule 
@@ -718,28 +718,27 @@ function App() {
     setUser(null);
   };
 
-  const handleWritePost = (title: string, content: string, imageUrl?: string, isNotice: boolean = false) => {
+  const handleWritePost = (title: string, content: string, imageUrl?: string) => {
      const newPost: CommunityPost = {
          id: `new_${Date.now()}`,
          title,
          content,
          imageUrl,
-         authorId: user?.email === 'momple@momple.com' || user?.name === 'momple' ? 'momple' : 'me', // Mock: if user is momple, use correct ID
+         authorId: 'me',
          authorName: user?.name || '익명',
          authorBadge: '새내기',
          timeAgo: '방금 전',
          viewCount: 0,
          likeCount: 0,
          commentCount: 0,
-         isPopular: false,
-         isNotice: isNotice
+         isPopular: false
      };
      setPosts([newPost, ...posts]);
   };
 
   // Render
   return (
-    <HashRouter>
+    <Router>
        <div className="max-w-md mx-auto bg-white min-h-screen shadow-2xl relative overflow-hidden">
          <Routes>
             <Route path="/login" element={!user ? <LoginPage onLoginSuccess={handleLoginSuccess} /> : <Navigate to="/" />} />
@@ -776,7 +775,7 @@ function App() {
 
          {user && <BottomNav />}
        </div>
-    </HashRouter>
+    </Router>
   );
 }
 

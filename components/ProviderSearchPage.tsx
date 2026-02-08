@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Provider } from '../types';
@@ -57,7 +58,7 @@ const ProviderSearchPage = ({ userState }: { userState: any }) => {
           <div className="bg-gray-100 rounded-xl flex items-center px-4 py-3 gap-2">
              <input 
                type="text" 
-               placeholder="지역(강남구), 업체명 검색" 
+               placeholder="지역(시/군/구) 또는 업체명 검색" 
                className="bg-transparent flex-1 outline-none text-sm"
                value={query}
                onChange={(e) => setQuery(e.target.value)}
@@ -81,12 +82,15 @@ const ProviderSearchPage = ({ userState }: { userState: any }) => {
                 ) : (
                     <Database size={12} />
                 )}
-                {loading ? '검색 중...' : statusMsg}
+                {loading ? '공공데이터 조회 중...' : statusMsg}
              </span>
              {isMock && !loading && (
                 <span className="opacity-70 text-[10px]">실제 데이터 연동 지연시 표시됨</span>
              )}
           </div>
+          <p className="text-[10px] text-gray-400 mt-1 px-2">
+             * 팁: '강남구', '부산' 등 지역명으로 검색하면 더 많은 산후도우미 업체를 찾을 수 있습니다.
+          </p>
        </div>
 
        <div className="p-4">
@@ -108,7 +112,7 @@ const ProviderSearchPage = ({ userState }: { userState: any }) => {
                 <p className="text-xs mt-2 text-gray-300">다른 키워드로 검색해보세요.</p>
              </div>
           ) : (
-             <div className="space-y-3">
+             <div className="space-y-2">
                  {displayList.map((p, index) => (
                     <ProviderCard 
                         key={p.id} 

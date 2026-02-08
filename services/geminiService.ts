@@ -3,7 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 // Helper: Get AI Client lazily
 // This prevents the app from crashing on startup if process.env.API_KEY is undefined.
 const getAiClient = () => {
-  if (!process.env.API_KEY) {
+  // Check if API_KEY exists and is not just the empty fallback string
+  if (!process.env.API_KEY || process.env.API_KEY === '""') {
     console.warn("Gemini API Key is missing.");
     return null;
   }
@@ -28,7 +29,7 @@ const fileToBase64 = async (file: File): Promise<string> => {
 export const getParentingAdvice = async (query: string): Promise<string> => {
   const ai = getAiClient();
   if (!ai) {
-    return "API 설정이 필요합니다. (API Key Missing)";
+    return "API 설정이 필요합니다. (API Key Missing in Vercel Env)";
   }
 
   try {

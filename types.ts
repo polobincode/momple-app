@@ -3,6 +3,8 @@ export enum QualityGrade {
   A = 'A',
   B = 'B',
   C = 'C',
+  D = 'D',
+  F = 'F',
   Unrated = 'Unrated'
 }
 
@@ -39,12 +41,13 @@ export interface Provider {
   description: string;
   grade: QualityGrade;
   yearsActive: number;
-  isVerified: boolean;
+  userCount: number; // New: Cumulative users from gov data
+  isVerified: boolean; // Momple Partner Verification
   isAd: boolean;
   reviews: Review[];
   imageUrl: string;
   priceStart: number;
-  phoneNumber?: string; // Added phone number
+  phoneNumber?: string; 
 }
 
 export interface Product {
@@ -113,6 +116,7 @@ export interface UserState {
   isAuthenticated: boolean;
   role: UserRole | null;
   name: string;
+  email?: string; // New field for user email
   intro?: string; // New field for status message
   avatar?: string; // New field for profile picture
   babyName?: string; // New field for "00이 맘"
@@ -123,7 +127,7 @@ export interface UserState {
   postCount: number; // New: Track number of posts created
   commentCount: number; // New: Track number of comments created
   unlockedProviders: string[];
-  viewedReviews: Record<string, number>;
+  viewedReviews: { [key: string]: number }; // Changed from Record to index signature to avoid ReferenceError
   // Provider specific
   providerInfo?: {
     id?: string; // Added ID link
@@ -133,11 +137,12 @@ export interface UserState {
     imageUrl: string;
     phoneNumber?: string;
   };
-  // Partner Subscription
+  // Partner Subscription & Usage
   subscription?: {
     status: 'trial' | 'active' | 'expired';
     expiryDate: string; // ISO Date String
   };
+  chatUsage: number; // New: Track monthly chat messages sent (Reset monthly)
 }
 
 // --- Chat Types ---
@@ -193,12 +198,27 @@ export interface PartnerRequest {
   status: 'pending' | 'approved' | 'rejected';
 }
 
+export type DisciplineAction = 'ban_5' | 'ban_15' | 'ban_30' | 'ban_permanent' | 'dismissed';
+
 export interface ReportItem {
   id: string;
   targetType: 'post' | 'comment' | 'review';
   targetId: string; // Link to actual content
   reason: string;
   reporter: string;
+  targetUser: string; // User being reported
   contentSnippet: string;
-  status: 'pending' | 'blinded' | 'dismissed';
+  status: 'pending' | 'resolved' | 'dismissed';
+  actionTaken?: DisciplineAction | string;
+}
+
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  userName: string;
+  title: string;
+  content: string;
+  date: string;
+  status: 'pending' | 'replied';
+  reply?: string;
 }

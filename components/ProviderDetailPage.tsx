@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Provider, Review, QualityGrade } from '../types';
 import { MOCK_PROVIDERS } from '../constants';
 import { verifyReceipt } from '../services/geminiService';
-import { ArrowLeft, Star, Image as ImageIcon, Video, Upload, CreditCard, ShieldCheck, MapPin, CheckCircle, Phone, MessageSquareText, Trophy, Siren, AlertCircle, CornerDownRight, Store, Loader2 } from 'lucide-react';
+import { ArrowLeft, Star, Image as ImageIcon, Video, Upload, CreditCard, ShieldCheck, MapPin, CheckCircle, Phone, MessageSquareText, Trophy, Siren, AlertCircle, CornerDownRight, Store, Loader2, Building2, Users, Clock } from 'lucide-react';
 
 interface ProviderDetailPageProps {
   onWriteReview: (providerId: string, content: string, rating: number, hasMedia: boolean, isVerified: boolean) => void;
@@ -14,7 +14,26 @@ interface ProviderDetailPageProps {
 const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, customReviews }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const providerInitial = MOCK_PROVIDERS.find(p => p.id === id);
+  // In a real app, you would fetch from API based on ID. Here we just look up Mock.
+  // Note: Since we have dynamic search results not in MOCK_PROVIDERS, this simple lookup might fail for dynamic searches.
+  // For the prototype, we can pass the provider object via location state or fallback.
+  // We'll fallback to a generic object if not found in MOCK_PROVIDERS.
+  
+  const providerInitial = MOCK_PROVIDERS.find(p => p.id === id) || {
+      id: id || 'unknown',
+      name: '정보를 불러오는 중...',
+      location: '위치 정보 없음',
+      description: '정부 등록 제공기관',
+      grade: QualityGrade.Unrated,
+      yearsActive: 0,
+      userCount: 0,
+      isVerified: false,
+      isAd: false,
+      reviews: [],
+      imageUrl: '',
+      priceStart: 0,
+      phoneNumber: undefined
+  };
 
   // If customReviews (from App state) is provided, use it, otherwise fall back to initial or local state
   const [localReviews, setLocalReviews] = useState<Review[]>(providerInitial ? providerInitial.reviews : []);
@@ -27,12 +46,15 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
   const [writeRating, setWriteRating] = useState(5);
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
-
-  if (!providerInitial) {
-    return <div className="p-10 text-center">업체를 찾을 수 없습니다.</div>;
-  }
   
   const provider = { ...providerInitial, reviews };
+
+  const formatUserCount = (count: number) => {
+    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+    if (count >= 100) return `${Math.floor(count / 100) * 100}+`;
+    if (count >= 10) return `${Math.floor(count / 10) * 10}+`;
+    return count.toString();
+  };
 
   // Best Reviews: Prioritize 'isBest' flag, then High Rating
   const bestReviews = provider.reviews
@@ -125,9 +147,9 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
 
   const getQualityBadge = (grade: QualityGrade) => {
     switch(grade) {
-      case QualityGrade.A: return <span className="text-accent bg-red-50 px-2 py-1 rounded text-xs font-medium border border-red-100">정부평가 A</span>;
-      case QualityGrade.B: return <span className="text-primary bg-teal-50 px-2 py-1 rounded text-xs font-medium border border-teal-100">정부평가 B</span>;
-      case QualityGrade.C: return <span className="text-gray-500 bg-gray-50 px-2 py-1 rounded text-xs font-medium border border-gray-100">정부평가 C</span>;
+      case QualityGrade.A: return <span className="text-accent bg-red-50 px-2 py-1 rounded text-xs font-bold border border-red-100">정부평가 A등급</span>;
+      case QualityGrade.B: return <span className="text-primary bg-teal-50 px-2 py-1 rounded text-xs font-bold border border-teal-100">정부평가 B등급</span>;
+      case QualityGrade.C: return <span className="text-gray-500 bg-gray-50 px-2 py-1 rounded text-xs font-bold border border-gray-100">정부평가 C등급</span>;
       default: return null;
     }
   };
@@ -157,7 +179,7 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
               <p className="text-sm font-bold text-gray-700">{review.userName}</p>
               {review.isVerified && (
                  <span className="flex items-center text-[10px] font-medium text-white bg-green-500 px-2 py-0.5 rounded-full shadow-sm">
-                   <ShieldCheck size={10} className="mr-0.5" /> 실제이용자 후기 인증
+                   <ShieldCheck size={10} className="mr-0.5" /> 실제이용자 인증
                  </span>
               )}
               {review.isBest && (
@@ -234,6 +256,22 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
 
       {viewMode === 'list' ? (
         <>
+          {/* Unverified Provider Alert (CTA) */}
+          {!provider.isVerified && (
+             <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between">
+                <div>
+                   <p className="text-xs text-gray-300 font-medium">사장님이신가요?</p>
+                   <p className="text-sm font-bold">이 업체를 내 계정으로 등록하고 관리하세요.</p>
+                </div>
+                <button 
+                  onClick={() => navigate('/partner-subscription')} // Redirect to partner signup/subscription
+                  className="bg-white text-gray-900 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors"
+                >
+                  업체 등록하기
+                </button>
+             </div>
+          )}
+
           {/* Provider Info Header */}
           <div className="p-5 border-b border-gray-100 bg-gray-50/30">
              <div className="flex gap-4 mb-4">
@@ -252,12 +290,35 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
                  <div className="flex items-center text-gray-400 text-xs mb-2">
                    <MapPin size={12} className="mr-1" /> {provider.location}
                  </div>
+                 
                  <div className="flex gap-1">
                    {getQualityBadge(provider.grade)}
-                   <span className="text-gray-500 bg-white px-2 py-1 rounded text-xs font-medium border border-gray-200">{provider.yearsActive}년 경력</span>
                  </div>
                </div>
              </div>
+             
+             {/* Stats Row */}
+             <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-3">
+                   <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                      <Users size={16} />
+                   </div>
+                   <div>
+                      <p className="text-[10px] text-gray-400 font-medium">누적 이용자</p>
+                      <p className="text-sm font-bold text-gray-800">{formatUserCount(provider.userCount)}</p>
+                   </div>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-3">
+                   <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
+                      <Clock size={16} />
+                   </div>
+                   <div>
+                      <p className="text-[10px] text-gray-400 font-medium">운영 기간</p>
+                      <p className="text-sm font-bold text-gray-800">{provider.yearsActive === 0 ? '신규' : `${provider.yearsActive}년`}</p>
+                   </div>
+                </div>
+             </div>
+
              <p className="text-sm text-gray-500 leading-relaxed mb-4 font-light">{provider.description}</p>
              
              {/* Best Reviews Section */}
@@ -337,9 +398,18 @@ const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ onWriteReview, 
              </button>
              <button 
                onClick={startChat}
-               className="flex-[2] bg-primary text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary-dark transition-colors shadow-lg shadow-primary/20"
+               disabled={!provider.isVerified} // Disable chat for unverified providers or handle differently
+               className={`flex-[2] py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg ${
+                   provider.isVerified 
+                   ? 'bg-primary text-white hover:bg-primary-dark shadow-primary/20' 
+                   : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+               }`}
              >
-               <MessageSquareText size={18} /> 상담하기
+               {provider.isVerified ? (
+                   <><MessageSquareText size={18} /> 상담하기</>
+               ) : (
+                   <><MessageSquareText size={18} /> 미가입 업체</>
+               )}
              </button>
           </div>
         </>

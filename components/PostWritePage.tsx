@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, X } from 'lucide-react';
+import { ArrowLeft, Camera, X, Megaphone } from 'lucide-react';
 
 interface PostWritePageProps {
-  onWritePost: (title: string, content: string, imageUrl?: string) => void;
+  onWritePost: (title: string, content: string, imageUrl?: string, isNotice?: boolean) => void;
 }
 
 const PostWritePage: React.FC<PostWritePageProps> = ({ onWritePost }) => {
@@ -11,6 +12,7 @@ const PostWritePage: React.FC<PostWritePageProps> = ({ onWritePost }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isNotice, setIsNotice] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -25,7 +27,7 @@ const PostWritePage: React.FC<PostWritePageProps> = ({ onWritePost }) => {
       alert('제목과 내용을 모두 입력해주세요.');
       return;
     }
-    onWritePost(title, content, imagePreview || undefined);
+    onWritePost(title, content, imagePreview || undefined, isNotice);
     navigate('/', { replace: true });
   };
 
@@ -52,6 +54,23 @@ const PostWritePage: React.FC<PostWritePageProps> = ({ onWritePost }) => {
 
       {/* Editor Area */}
       <div className="flex-1 p-5 overflow-y-auto">
+        <div className="flex items-center justify-end mb-4">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isNotice ? 'bg-[#2AC1BC] border-[#2AC1BC]' : 'bg-white border-gray-300'}`}>
+                    {isNotice && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                </div>
+                <input 
+                    type="checkbox" 
+                    className="hidden" 
+                    checked={isNotice} 
+                    onChange={(e) => setIsNotice(e.target.checked)} 
+                />
+                <span className={`text-sm font-bold flex items-center gap-1 ${isNotice ? 'text-[#2AC1BC]' : 'text-gray-400'}`}>
+                    <Megaphone size={14} /> 공지사항으로 등록
+                </span>
+            </label>
+        </div>
+
         <input 
           type="text" 
           placeholder="제목을 입력하세요" 
