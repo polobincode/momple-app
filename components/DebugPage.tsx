@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, X, RefreshCw, Terminal, Server, MessageCircle } from 'lucide-react';
@@ -100,7 +101,7 @@ const DebugPage = () => {
                 </div>
                 <p className="text-[10px] text-gray-500 mt-3 border-t border-gray-700 pt-2">
                     * If login fails with KOE009, add the Origin above to: <br/>
-                    Kakao Developers > My App > Platform > Web > Site Domain
+                    Kakao Developers &gt; My App &gt; Platform &gt; Web &gt; Site Domain
                 </p>
             </div>
 
