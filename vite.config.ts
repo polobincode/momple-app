@@ -1,9 +1,9 @@
+
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
+// IMPORTANT: RESTART SERVER (npm run dev) AFTER CHANGING THIS FILE
 export default defineConfig(({ mode }) => {
-  // Casting process to any to avoid "Property 'cwd' does not exist on type 'Process'" error
   const env = loadEnv(mode, (process as any).cwd(), '');
   return {
     plugins: [react()],
@@ -11,12 +11,18 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
     },
     define: {
-      // Fallback to empty string if undefined to prevent JS runtime errors on client
       'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
     },
-    // 로컬 개발 환경에서 CORS 문제 방지 또는 API 폴더 구조 인식용
     server: {
-      host: true, // 모든 네트워크 인터페이스에서 접근 허용
+      host: true, 
+      proxy: {
+        '/gov-api': {
+          target: 'https://api.socialservice.or.kr:444',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/gov-api/, ''),
+          secure: false, // Required for some self-signed or gov certs
+        }
+      }
     }
   }
 })

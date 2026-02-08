@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Provider } from '../types';
+import { Provider, QualityGrade } from '../types';
 import ProviderCard from './ProviderCard';
 import { searchProvidersFromGov } from '../services/externalApi';
 import { Search, RefreshCw, AlertTriangle, Database, CloudOff, Info } from 'lucide-react';
@@ -47,8 +47,8 @@ const ProviderSearchPage = ({ userState }: { userState: any }) => {
     if (a.isAd && !b.isAd) return -1;
     if (!a.isAd && b.isAd) return 1;
     // Mock sort: rating logic
-    const scoreA = a.reviews.length * 0.1 + (a.grade === 'A' ? 5 : 0);
-    const scoreB = b.reviews.length * 0.1 + (b.grade === 'A' ? 5 : 0);
+    const scoreA = a.reviews.length * 0.1 + (a.grade === QualityGrade.A ? 5 : 0);
+    const scoreB = b.reviews.length * 0.1 + (b.grade === QualityGrade.A ? 5 : 0);
     return scoreB - scoreA;
   });
 
@@ -112,7 +112,7 @@ const ProviderSearchPage = ({ userState }: { userState: any }) => {
                 <p className="text-xs mt-2 text-gray-300">다른 키워드로 검색해보세요.</p>
              </div>
           ) : (
-             <div className="space-y-2">
+             <div className="space-y-4">
                  {displayList.map((p, index) => (
                     <ProviderCard 
                         key={p.id} 
