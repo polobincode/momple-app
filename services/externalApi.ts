@@ -3,178 +3,299 @@ import { MOCK_PROVIDERS } from '../constants';
 import { Provider, QualityGrade } from '../types';
 
 // ============================================================================
-// [API 설정]
+// [API 설정] - 사회서비스 전자바우처 OpenAPI
 // ============================================================================
 
 const GOV_API_KEY = '27c3fb03b6bbad323c5f91809853756c7f254e9066c559033fa4b4b9c6c35aae';
+
+// API 기본 경로 (Vite Proxy 또는 Vercel Serverless)
+const getIsDev = (): boolean => {
+  try {
+    const env = (import.meta as any).env;
+    return (env && env.DEV) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  } catch {
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  }
+};
 
 // ============================================================================
 // 1. 사업자등록정보 진위확인 (Mock 유지)
 // ============================================================================
 export const verifyBusinessNumber = async (businessNo: string): Promise<boolean> => {
-  await new Promise(resolve => setTimeout(resolve, 800)); 
+  await new Promise(resolve => setTimeout(resolve, 800));
   const cleanNum = businessNo.replace(/-/g, '');
   return cleanNum.length === 10;
 };
 
 // ============================================================================
-// 2. 산후도우미 업체 검색
+// 2. 품질평가 정보 조회 (qualityList API)
 // ============================================================================
-export const searchProvidersFromGov = async (query: string): Promise<{ data: Provider[], status: string, isMock: boolean }> => {
-  
-  // --- 실제 API 로직 ---
-  let xmlText: string | null = null;
-  let statusMessage = '';
-  
+interface QualityInfo {
+  providerName: string;
+  grade: string;
+  evaluationYear: string;
+}
+
+// 품질평가 캐시 (세션 동안 유지)
+let qualityCache: Map<string, QualityGrade> | null = null;
+
+const fetchQualityGrades = async (): Promise<Map<string, QualityGrade>> => {
+  if (qualityCache) return qualityCache;
+
+  const isDev = getIsDev();
+  const cache = new Map<string, QualityGrade>();
+
   try {
-    // [수정] 환경 감지 로직 강화 (Safe Access)
-    // Vite 환경 변수(import.meta.env)가 없거나 접근 실패 시에도 멈추지 않도록 처리
-    let isDev = false;
-    try {
-        const env = (import.meta as any).env;
-        isDev = (env && env.DEV) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    } catch (e) {
-        // Fallback check
-        isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    }
-    
+    const queryParams = `?ServiceKey=${GOV_API_KEY}&numOfRows=500&pageNo=1`;
     let apiUrl = '';
-    
-    // [수정] 명세서 기준 파라미터
-    const queryParams = `?ServiceKey=${GOV_API_KEY}&numOfRows=100&pageNo=1`;
 
     if (isDev) {
-        // Local Development: Vite Proxy 사용 (/gov-api -> https://api.socialservice.or.kr:444)
-        // 주의: vite.config.ts 수정 후 서버 재시작 필수
-        apiUrl = `/gov-api/api/service/provider/providerList${queryParams}`;
-        if (query) apiUrl += `&providerName=${encodeURIComponent(query)}`;
+      apiUrl = `/gov-api/api/service/quality/qualityList${queryParams}`;
     } else {
-        // Production (Vercel): Serverless Function 사용
-        apiUrl = `/api/gov-proxy?query=${encodeURIComponent(query)}`;
+      apiUrl = `/api/gov-proxy?type=quality`;
     }
 
-    console.log(`[Frontend] Fetching API (${isDev ? 'Local Proxy' : 'Vercel Function'}): ${apiUrl}`);
-    
-    // 5초 타임아웃
+    console.log(`[품질평가 API] Fetching: ${apiUrl}`);
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     const response = await fetch(apiUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
-    
-    if (response.ok) {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-             // 프록시가 에러를 JSON으로 반환한 경우
-             const errJson = await response.json();
-             throw new Error(errJson.error || "Proxy returned JSON error");
-        }
-        xmlText = await response.text();
-        statusMessage = '사회서비스 API 연동 성공';
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const text = await response.text();
+    if (!text.includes('<response>')) throw new Error('Invalid XML response');
+
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(text, "text/xml");
+    const items = xmlDoc.getElementsByTagName('item');
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const name = item.getElementsByTagName('providerName')[0]?.textContent?.trim() || '';
+      const gradeStr = item.getElementsByTagName('qualityGrade')[0]?.textContent?.trim()
+                    || item.getElementsByTagName('grade')[0]?.textContent?.trim() || '';
+
+      if (name) {
+        let grade = QualityGrade.Unrated;
+        const g = gradeStr.toUpperCase();
+        if (g === 'A' || g === '가' || g === '최우수') grade = QualityGrade.A;
+        else if (g === 'B' || g === '나' || g === '우수') grade = QualityGrade.B;
+        else if (g === 'C' || g === '다' || g === '보통') grade = QualityGrade.C;
+        else if (g === 'D' || g === '라') grade = QualityGrade.D;
+        else if (g === 'F' || g === '마' || g === '미흡') grade = QualityGrade.F;
+
+        cache.set(name, grade);
+      }
+    }
+
+    console.log(`[품질평가 API] ${cache.size}개 업체 등급 로드 완료`);
+    qualityCache = cache;
+  } catch (error: any) {
+    console.warn("[품질평가 API] 조회 실패 (Mock fallback):", error.message);
+    // 품질평가 API 연결 실패 시 빈 캐시 반환
+  }
+
+  return cache;
+};
+
+// 업체명으로 품질등급 매칭 (부분 일치 지원)
+const matchQualityGrade = (providerName: string, gradeMap: Map<string, QualityGrade>): QualityGrade => {
+  // 1. 정확 매칭
+  if (gradeMap.has(providerName)) return gradeMap.get(providerName)!;
+
+  // 2. 부분 매칭 (업체명이 포함된 경우)
+  for (const [key, grade] of gradeMap) {
+    if (providerName.includes(key) || key.includes(providerName)) {
+      return grade;
+    }
+  }
+
+  return QualityGrade.Unrated;
+};
+
+// ============================================================================
+// 3. 산후도우미 업체 검색 (providerList API + 품질평가 연동)
+// ============================================================================
+export const searchProvidersFromGov = async (query: string): Promise<{ data: Provider[], status: string, isMock: boolean, apiConnected: boolean }> => {
+
+  let xmlText: string | null = null;
+  let statusMessage = '';
+  let apiConnected = false;
+
+  // 품질평가 데이터 미리 로드 (병렬)
+  const qualityPromise = fetchQualityGrades();
+
+  try {
+    const isDev = getIsDev();
+    let apiUrl = '';
+
+    const queryParams = `?ServiceKey=${GOV_API_KEY}&numOfRows=100&pageNo=1`;
+
+    if (isDev) {
+      apiUrl = `/gov-api/api/service/provider/providerList${queryParams}`;
+      if (query) apiUrl += `&providerName=${encodeURIComponent(query)}`;
     } else {
-        // 404 등 HTTP 에러 처리
-        if (response.status === 404 && isDev) {
-            console.error("Local Proxy 404 Error: Vite 개발 서버를 재시작했는지 확인해주세요. (vite.config.ts 변경 적용 필요)");
-        }
-        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+      apiUrl = `/api/gov-proxy?query=${encodeURIComponent(query)}`;
+    }
+
+    console.log(`[제공기관 API] Fetching (${isDev ? 'Local Proxy' : 'Vercel Function'}): ${apiUrl}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(apiUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const errJson = await response.json();
+        throw new Error(errJson.error || "Proxy returned JSON error");
+      }
+      xmlText = await response.text();
+      apiConnected = true;
+      statusMessage = '공공데이터 API 연동 성공';
+    } else {
+      if (response.status === 404 && isDev) {
+        console.error("[제공기관 API] 404 Error: Vite 개발 서버 재시작 필요 (vite.config.ts 변경 적용)");
+      }
+      throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
     }
 
   } catch (error: any) {
-    console.warn("API Call Failed (Falling back to Mock):", error.message);
-    statusMessage = `API 연결 불안정 (${error.message || 'TimeOut'})`;
+    console.warn("[제공기관 API] 호출 실패 (Mock fallback):", error.message);
+    statusMessage = `API 연결 실패: ${error.message || 'TimeOut'}`;
   }
 
-  // --- XML 파싱 로직 ---
-  if (xmlText && !xmlText.includes('error') && xmlText.includes('<response>')) {
+  // 품질평가 데이터 대기
+  const gradeMap = await qualityPromise;
+
+  // --- XML 파싱 ---
+  if (xmlText && !xmlText.includes('<errMsg>') && xmlText.includes('<response>')) {
     try {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-      
-      const items = xmlDoc.getElementsByTagName('item');
-        
-      if (items.length > 0) {
-          const apiProviders: Provider[] = [];
-          for (let i = 0; i < items.length; i++) {
-              const item = items[i];
-              
-              const name = item.getElementsByTagName('providerName')[0]?.textContent || '이름 없음';
-              const addr = item.getElementsByTagName('address')[0]?.textContent || item.getElementsByTagName('loadAddress')[0]?.textContent || '주소 정보 없음';
-              const phone = item.getElementsByTagName('telNumber')[0]?.textContent || '';
-              const serviceName = item.getElementsByTagName('serviceName')[0]?.textContent || '사회서비스 제공기관';
 
-              // 등급 정보 임의 배정 (실제 API는 qualityList 별도 호출 필요)
-              let grade = QualityGrade.Unrated;
-              if (Math.random() > 0.6) grade = QualityGrade.A;
-              else if (Math.random() > 0.6) grade = QualityGrade.B;
-
-              // Mock 데이터 생성
-              const userCount = Math.floor(Math.random() * 1500) + 50; 
-              const yearsActive = Math.floor(Math.random() * 10) + 1;
-
-              apiProviders.push({
-                  id: `gov_${i}_${Date.now()}`, 
-                  name: name,
-                  location: addr,
-                  description: serviceName,
-                  grade: grade,
-                  yearsActive: yearsActive,
-                  userCount: userCount,
-                  isVerified: false, 
-                  isAd: false,
-                  reviews: [], 
-                  imageUrl: `https://picsum.photos/500/300?random=${i + 600}`, 
-                  priceStart: 0,
-                  phoneNumber: phone
-              });
-          }
-          if (apiProviders.length > 0) return { data: apiProviders, status: statusMessage, isMock: false };
+      // 결과 코드 확인
+      const resultCode = xmlDoc.getElementsByTagName('resultCode')[0]?.textContent;
+      if (resultCode && resultCode !== '00') {
+        const resultMsg = xmlDoc.getElementsByTagName('resultMsg')[0]?.textContent || 'Unknown error';
+        throw new Error(`API Error: ${resultCode} - ${resultMsg}`);
       }
-    } catch (e) { 
-        console.error("XML Parse Error", e); 
+
+      const items = xmlDoc.getElementsByTagName('item');
+
+      if (items.length > 0) {
+        const apiProviders: Provider[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+
+          const name = item.getElementsByTagName('providerName')[0]?.textContent?.trim() || '이름 없음';
+          const addr = item.getElementsByTagName('address')[0]?.textContent?.trim()
+                    || item.getElementsByTagName('loadAddress')[0]?.textContent?.trim()
+                    || '주소 정보 없음';
+          const phone = item.getElementsByTagName('telNumber')[0]?.textContent?.trim() || '';
+          const serviceName = item.getElementsByTagName('serviceName')[0]?.textContent?.trim() || '사회서비스 제공기관';
+          const userCountStr = item.getElementsByTagName('userCount')[0]?.textContent?.trim() || '0';
+          const establishYear = item.getElementsByTagName('establishYear')[0]?.textContent?.trim() || '';
+
+          // 품질평가 등급 매칭
+          const grade = matchQualityGrade(name, gradeMap);
+
+          // 이용자 수
+          const userCount = parseInt(userCountStr, 10) || Math.floor(Math.random() * 500) + 10;
+
+          // 운영 기간 계산
+          let yearsActive = 0;
+          if (establishYear) {
+            yearsActive = new Date().getFullYear() - parseInt(establishYear, 10);
+            if (yearsActive < 0) yearsActive = 0;
+          } else {
+            yearsActive = Math.floor(Math.random() * 8) + 1;
+          }
+
+          apiProviders.push({
+            id: `gov_${i}_${Date.now()}`,
+            name,
+            location: addr,
+            description: serviceName,
+            grade,
+            yearsActive,
+            userCount,
+            isVerified: false,
+            isAd: false,
+            reviews: [],
+            imageUrl: `https://picsum.photos/500/300?random=${i + 600}`,
+            priceStart: 0,
+            phoneNumber: phone
+          });
+        }
+
+        if (apiProviders.length > 0) {
+          const gradeCount = apiProviders.filter(p => p.grade !== QualityGrade.Unrated).length;
+          statusMessage += gradeCount > 0
+            ? ` (품질평가 ${gradeCount}건 연동)`
+            : ' (품질평가 데이터 매칭 없음)';
+          return { data: apiProviders, status: statusMessage, isMock: false, apiConnected };
+        }
+      }
+    } catch (e: any) {
+      console.error("[XML 파싱 오류]", e);
+      statusMessage = `데이터 파싱 오류: ${e.message}`;
     }
   }
 
   // ============================================================================
-  // [Fallback] Mock Data Generator
+  // [Fallback] Mock Data (API 연결 실패 시)
   // ============================================================================
-  
-  const fallbackData = MOCK_PROVIDERS.filter(p => p.name.includes(query) || p.location.includes(query));
-  
+
+  const fallbackData = query
+    ? MOCK_PROVIDERS.filter(p => p.name.includes(query) || p.location.includes(query))
+    : MOCK_PROVIDERS;
+
   if (fallbackData.length < 3 && query.length > 1) {
-      const demoProviders: Provider[] = [];
-      const city = query.length >= 2 ? query.substring(0, 2) : '서울';
-      
-      for(let i = 1; i <= 3; i++) {
-         demoProviders.push({
-            id: `mock_gen_${i}_${Date.now()}`,
-            name: `${query} ${i}호점 사랑맘케어`,
-            location: `${city} 행복구 희망동 ${i}0${i}번지`,
-            description: '정부바우처 사용 가능, 전문 관리사 상주',
-            grade: i === 1 ? QualityGrade.A : QualityGrade.B,
-            yearsActive: i * 3,
-            userCount: 300 * i,
-            isVerified: i === 1,
-            isAd: false,
-            reviews: [],
-            imageUrl: `https://picsum.photos/500/300?random=${2000+i}`,
-            priceStart: 1300000,
-            phoneNumber: '010-1234-5678'
-         });
-      }
-      return { 
-        data: [...fallbackData, ...demoProviders], 
-        status: `검색 결과 (데모 모드) - API 응답 없음`, 
-        isMock: true 
-      };
+    const demoProviders: Provider[] = [];
+    const city = query.length >= 2 ? query.substring(0, 2) : '서울';
+
+    for (let i = 1; i <= 3; i++) {
+      demoProviders.push({
+        id: `mock_gen_${i}_${Date.now()}`,
+        name: `${query} ${i}호점 사랑맘케어`,
+        location: `${city} 행복구 희망동 ${i}0${i}번지`,
+        description: '정부바우처 사용 가능, 전문 관리사 상주',
+        grade: i === 1 ? QualityGrade.A : QualityGrade.B,
+        yearsActive: i * 3,
+        userCount: 300 * i,
+        isVerified: i === 1,
+        isAd: false,
+        reviews: [],
+        imageUrl: `https://picsum.photos/500/300?random=${2000 + i}`,
+        priceStart: 1300000,
+        phoneNumber: '010-1234-5678'
+      });
+    }
+    return {
+      data: [...fallbackData, ...demoProviders],
+      status: `체험 데이터 (API 미연결)`,
+      isMock: true,
+      apiConnected: false
+    };
   }
 
-  return { 
-    data: fallbackData, 
-    status: fallbackData.length > 0 ? '체험 데이터 표시' : '검색 결과 없음', 
-    isMock: true 
+  return {
+    data: fallbackData,
+    status: fallbackData.length > 0 ? '체험 데이터 표시 (API 미연결)' : '검색 결과 없음',
+    isMock: true,
+    apiConnected: false
   };
 };
 
+// ============================================================================
+// [유틸] 소셜 로그인 (Mock)
+// ============================================================================
 export const loginWithSocial = async (provider: 'kakao' | 'google' | 'apple') => {
   await new Promise(resolve => setTimeout(resolve, 800));
   return {

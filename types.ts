@@ -85,8 +85,9 @@ export interface CommunityPost {
   commentCount: number;
   imageUrl?: string;
   isPopular?: boolean;
-  isBlinded?: boolean; // New: Report status
-  isNotice?: boolean; // New: Notice post status
+  isBlinded?: boolean;
+  isNotice?: boolean;
+  comments?: Comment[];
 }
 
 export interface Comment {
@@ -130,11 +131,12 @@ export interface UserState {
   viewedReviews: { [key: string]: number }; // Changed from Record to index signature to avoid ReferenceError
   // Provider specific
   providerInfo?: {
-    id?: string; // Added ID link
+    id?: string;
     businessName: string;
     businessRegNo: string;
-    description: string;
-    imageUrl: string;
+    representative?: string;
+    description?: string;
+    imageUrl?: string;
     phoneNumber?: string;
   };
   // Partner Subscription & Usage
